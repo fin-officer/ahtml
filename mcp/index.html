@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP PWA Client</title>
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk1DUCBQV0EgQ2xpZW50IiwKICAic2hvcnRfbmFtZSI6ICJNQ1AtUFdBIiwKICAiZGVzY3JpcHRpb24iOiAiTG9rYWxueSBrbGllbnQgZGxhIE1vZGVsIENvbnRleHQgUHJvdG9jb2wiLAogICJzdGFydF91cmwiOiAiLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzFhMjAyYyIsCiAgInRoZW1lX2NvbG9yIjogIiMzYjgyZjYiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXlOREFpSUdobGFXZG9kRDBpTWpRd0lqNDhZMmx5WTJ4bElHTjRQU0l4TWpBaUlHTjVQU0l4TWpBaUlISTlJakV3TUNJZ1ptbHNiRDBpSXpOaU9ESm1OaUl2UGp4d1lYUm9JR1E5SWsweE1qQWdPREJzTFRjdU5TQTBJRzgyTGpVZ05pNDFJRGd1TlMwekxqVXRNaTQxTVRrdE5pNDFMVFl1TlMwekxqVXROaTQxVUVoeU9USXVOaUl2UGp3dmMzWm5QZz09IiwKICAgICAgInNpemVzIjogIjI0MHgyNDAiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #4a5568;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #3b82f6;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #a0aec0;
+            font-size: 1.1rem;
+        }
+
+        .status-bar {
+            background: #2d3748;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        .connection-panel {
+            background: #2d3748;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .connection-panel h2 {
+            color: #3b82f6;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .connection-form {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            color: #a0aec0;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            background: #1a202c;
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            padding: 12px;
+            color: #e2e8f0;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            height: fit-content;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .services-panel {
+            background: #2d3748;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .service-card {
+            background: #1a202c;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px solid #4a5568;
+            transition: all 0.3s;
+        }
+
+        .service-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+
+        .service-card h3 {
+            color: #3b82f6;
+            margin-bottom: 10px;
+        }
+
+        .service-card p {
+            color: #a0aec0;
+            margin-bottom: 15px;
+        }
+
+        .service-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            background: #4a5568;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-small:hover {
+            background: #3b82f6;
+        }
+
+        .log-panel {
+            background: #2d3748;
+            border-radius: 12px;
+            padding: 25px;
+        }
+
+        .log-container {
+            background: #1a202c;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #4a5568;
+            padding-left: 10px;
+        }
+
+        .log-entry.info {
+            border-left-color: #3b82f6;
+            color: #93c5fd;
+        }
+
+        .log-entry.success {
+            border-left-color: #10b981;
+            color: #6ee7b7;
+        }
+
+        .log-entry.error {
+            border-left-color: #ef4444;
+            color: #fca5a5;
+        }
+
+        .log-entry.warning {
+            border-left-color: #f59e0b;
+            color: #fbbf24;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 768px) {
+            .connection-form {
+                grid-template-columns: 1fr;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🔗 MCP PWA Client</h1>
+            <p>Lokalny klient dla Model Context Protocol</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="connectionStatus"></div>
+                <span id="connectionText">Rozłączony</span>
+            </div>
+            <div class="status-item">
+                <span>Usługi: <strong id="serviceCount">0</strong></span>
+            </div>
+            <div class="status-item">
+                <span>Ostatnia aktywność: <span id="lastActivity">-</span></span>
+            </div>
+        </div>
+
+        <div class="connection-panel">
+            <h2>🌐 Połączenie z serwerem MCP</h2>
+            <div class="connection-form">
+                <div class="form-group">
+                    <label for="serverUrl">URL Serwera MCP</label>
+                    <input type="text" id="serverUrl" placeholder="ws://localhost:8080" value="ws://localhost:8080">
+                </div>
+                <div class="form-group">
+                    <label for="protocol">Protokół</label>
+                    <select id="protocol">
+                        <option value="websocket">WebSocket</option>
+                        <option value="stdio">STDIO</option>
+                        <option value="http">HTTP</option>
+                    </select>
+                </div>
+                <button class="btn" id="connectBtn" onclick="toggleConnection()">Połącz</button>
+            </div>
+        </div>
+
+        <div class="services-panel">
+            <h2>🛠️ Dostępne usługi MCP</h2>
+            <div class="services-grid" id="servicesGrid">
+                <!-- Usługi będą dodawane dynamicznie -->
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <h2>📝 Logi komunikacji</h2>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry info">[INFO] PWA Client uruchomiony</div>
+                <div class="log-entry info">[INFO] Oczekiwanie na połączenie z serwerem MCP...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MCPClient {
+            constructor() {
+                this.connection = null;
+                this.isConnected = false;
+                this.services = new Map();
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                this.init();
+            }
+
+            init() {
+                this.setupServiceWorker();
+                this.loadSampleServices();
+                this.updateLastActivity();
+                setInterval(() => this.updateLastActivity(), 1000);
+            }
+
+            async setupServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    try {
+                        const swCode = `
+                            self.addEventListener('install', event => {
+                                console.log('Service Worker zainstalowany');
+                                self.skipWaiting();
+                            });
+
+                            self.addEventListener('activate', event => {
+                                console.log('Service Worker aktywowany');
+                                event.waitUntil(self.clients.claim());
+                            });
+
+                            self.addEventListener('message', event => {
+                                if (event.data.type === 'MCP_REQUEST') {
+                                    // Tutaj można obsłużyć żądania MCP w tle
+                                    console.log('Otrzymano żądanie MCP:', event.data);
+                                }
+                            });
+                        `;
+
+                        const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                        const swUrl = URL.createObjectURL(swBlob);
+
+                        await navigator.serviceWorker.register(swUrl);
+                        this.log('Service Worker zarejestrowany pomyślnie', 'success');
+                    } catch (error) {
+                        this.log(`Błąd rejestracji Service Worker: ${error.message}`, 'error');
+                    }
+                }
+            }
+
+            async toggleConnection() {
+                if (this.isConnected) {
+                    this.disconnect();
+                } else {
+                    await this.connect();
+                }
+            }
+
+            async connect() {
+                const url = document.getElementById('serverUrl').value;
+                const protocol = document.getElementById('protocol').value;
+
+                if (!url) {
+                    this.log('Proszę podać URL serwera', 'error');
+                    return;
+                }
+
+                this.log(`Próba połączenia z ${url} przez ${protocol}...`, 'info');
+
+                try {
+                    if (protocol === 'websocket') {
+                        await this.connectWebSocket(url);
+                    } else if (protocol === 'http') {
+                        await this.connectHTTP(url);
+                    } else {
+                        this.log('STDIO wymaga lokalnego środowiska Node.js', 'warning');
+                        this.simulateConnection();
+                    }
+                } catch (error) {
+                    this.log(`Błąd połączenia: ${error.message}`, 'error');
+                    this.scheduleReconnect();
+                }
+            }
+
+            async connectWebSocket(url) {
+                return new Promise((resolve, reject) => {
+                    this.connection = new WebSocket(url);
+
+                    this.connection.onopen = () => {
+                        this.isConnected = true;
+                        this.reconnectAttempts = 0;
+                        this.updateConnectionStatus();
+                        this.log('Połączenie WebSocket nawiązane', 'success');
+                        this.sendHandshake();
+                        resolve();
+                    };
+
+                    this.connection.onmessage = (event) => {
+                        this.handleMessage(JSON.parse(event.data));
+                    };
+
+                    this.connection.onclose = () => {
+                        this.isConnected = false;
+                        this.updateConnectionStatus();
+                        this.log('Połączenie WebSocket zamknięte', 'warning');
+                        this.scheduleReconnect();
+                    };
+
+                    this.connection.onerror = (error) => {
+                        reject(new Error('Błąd WebSocket'));
+                    };
+
+                    // Timeout dla połączenia
+                    setTimeout(() => {
+                        if (!this.isConnected) {
+                            reject(new Error('Timeout połączenia'));
+                        }
+                    }, 5000);
+                });
+            }
+
+            async connectHTTP(url) {
+                try {
+                    const response = await fetch(`${url}/mcp/health`);
+                    if (response.ok) {
+                        this.isConnected = true;
+                        this.updateConnectionStatus();
+                        this.log('Połączenie HTTP nawiązane', 'success');
+                        await this.discoverHTTPServices(url);
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    throw new Error(`Błąd HTTP: ${error.message}`);
+                }
+            }
+
+            simulateConnection() {
+                // Symulacja połączenia dla celów demonstracyjnych
+                setTimeout(() => {
+                    this.isConnected = true;
+                    this.updateConnectionStatus();
+                    this.log('Tryb symulacji - połączenie nawiązane', 'info');
+                    this.loadSampleServices();
+                }, 1000);
+            }
+
+            disconnect() {
+                if (this.connection) {
+                    this.connection.close();
+                    this.connection = null;
+                }
+                this.isConnected = false;
+                this.updateConnectionStatus();
+                this.log('Rozłączono z serwerem MCP', 'info');
+            }
+
+            sendHandshake() {
+                const handshake = {
+                    jsonrpc: '2.0',
+                    method: 'initialize',
+                    params: {
+                        protocolVersion: '1.0',
+                        clientInfo: {
+                            name: 'MCP PWA Client',
+                            version: '1.0.0'
+                        }
+                    },
+                    id: Date.now()
+                };
+
+                this.sendMessage(handshake);
+            }
+
+            sendMessage(message) {
+                if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+                    this.connection.send(JSON.stringify(message));
+                    this.log(`Wysłano: ${message.method || 'response'}`, 'info');
+                }
+            }
+
+            handleMessage(message) {
+                this.log(`Otrzymano: ${JSON.stringify(message).substring(0, 100)}...`, 'info');
+
+                if (message.method === 'tools/list') {
+                    this.handleToolsList(message.result);
+                } else if (message.method === 'resources/list') {
+                    this.handleResourcesList(message.result);
+                }
+            }
+
+            handleToolsList(tools) {
+                tools.forEach(tool => {
+                    this.services.set(tool.name, {
+                        type: 'tool',
+                        name: tool.name,
+                        description: tool.description,
+                        inputSchema: tool.inputSchema
+                    });
+                });
+                this.updateServicesDisplay();
+            }
+
+            handleResourcesList(resources) {
+                resources.forEach(resource => {
+                    this.services.set(resource.uri, {
+                        type: 'resource',
+                        name: resource.name,
+                        uri: resource.uri,
+                        description: resource.description
+                    });
+                });
+                this.updateServicesDisplay();
+            }
+
+            loadSampleServices() {
+                // Przykładowe usługi dla demonstracji
+                const sampleServices = [
+                    {
+                        name: 'file-system',
+                        type: 'tool',
+                        description: 'Dostęp do lokalnego systemu plików',
+                        status: 'active'
+                    },
+                    {
+                        name: 'database',
+                        type: 'resource',
+                        description: 'Połączenie z lokalną bazą danych',
+                        status: 'inactive'
+                    },
+                    {
+                        name: 'api-client',
+                        type: 'tool',
+                        description: 'Klient API dla zewnętrznych usług',
+                        status: 'active'
+                    },
+                    {
+                        name: 'calculator',
+                        type: 'tool',
+                        description: 'Zaawansowany kalkulator matematyczny',
+                        status: 'active'
+                    }
+                ];
+
+                sampleServices.forEach(service => {
+                    this.services.set(service.name, service);
+                });
+
+                this.updateServicesDisplay();
+            }
+
+            updateServicesDisplay() {
+                const grid = document.getElementById('servicesGrid');
+                grid.innerHTML = '';
+
+                this.services.forEach((service, key) => {
+                    const card = document.createElement('div');
+                    card.className = 'service-card';
+
+                    const statusColor = service.status === 'active' ? '#10b981' : '#6b7280';
+
+                    card.innerHTML = `
+                        <h3>${service.name}</h3>
+                        <p>${service.description}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <span style="color: ${statusColor};">● ${service.type}</span>
+                            <span style="color: #a0aec0; font-size: 12px;">${service.status || 'unknown'}</span>
+                        </div>
+                        <div class="service-actions">
+                            <button class="btn-small" onclick="mcpClient.testService('${key}')">Test</button>
+                            <button class="btn-small" onclick="mcpClient.inspectService('${key}')">Sprawdź</button>
+                        </div>
+                    `;
+
+                    grid.appendChild(card);
+                });
+
+                document.getElementById('serviceCount').textContent = this.services.size;
+            }
+
+            testService(serviceKey) {
+                const service = this.services.get(serviceKey);
+                this.log(`Testowanie usługi: ${service.name}`, 'info');
+
+                // Symulacja testu usługi
+                setTimeout(() => {
+                    const success = Math.random() > 0.3;
+                    if (success) {
+                        this.log(`✓ Test usługi ${service.name} zakończony pomyślnie`, 'success');
+                    } else {
+                        this.log(`✗ Test usługi ${service.name} nieudany`, 'error');
+                    }
+                }, 1000);
+            }
+
+            inspectService(serviceKey) {
+                const service = this.services.get(serviceKey);
+                this.log(`Sprawdzanie usługi: ${service.name}`, 'info');
+                this.log(`Typ: ${service.type}, Status: ${service.status || 'unknown'}`, 'info');
+
+                if (service.inputSchema) {
+                    this.log(`Schema: ${JSON.stringify(service.inputSchema)}`, 'info');
+                }
+            }
+
+            scheduleReconnect() {
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.reconnectAttempts++;
+                    const delay = Math.pow(2, this.reconnectAttempts) * 1000;
+                    this.log(`Ponowne połączenie za ${delay/1000}s (próba ${this.reconnectAttempts})`, 'warning');
+
+                    setTimeout(() => {
+                        this.connect();
+                    }, delay);
+                } else {
+                    this.log('Maksymalna liczba prób reconnect osiągnięta', 'error');
+                }
+            }
+
+            updateConnectionStatus() {
+                const statusDot = document.getElementById('connectionStatus');
+                const statusText = document.getElementById('connectionText');
+                const connectBtn = document.getElementById('connectBtn');
+
+                if (this.isConnected) {
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Połączony';
+                    connectBtn.textContent = 'Rozłącz';
+                } else {
+                    statusDot.classList.remove('connected');
+                    statusText.textContent = 'Rozłączony';
+                    connectBtn.textContent = 'Połącz';
+                }
+            }
+
+            updateLastActivity() {
+                const now = new Date();
+                document.getElementById('lastActivity').textContent =
+                    now.toLocaleTimeString('pl-PL');
+            }
+
+            log(message, type = 'info') {
+                const container = document.getElementById('logContainer');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+
+                const timestamp = new Date().toLocaleTimeString('pl-PL');
+                entry.textContent = `[${timestamp}] ${message}`;
+
+                container.appendChild(entry);
+                container.scrollTop = container.scrollHeight;
+
+                // Ograniczenie liczby logów
+                if (container.children.length > 100) {
+                    container.removeChild(container.firstChild);
+                }
+            }
+        }
+
+        // Globalna instancja klienta MCP
+        let mcpClient;
+
+        // Inicjalizacja po załadowaniu strony
+        document.addEventListener('DOMContentLoaded', () => {
+            mcpClient = new MCPClient();
+        });
+
+        // Funkcja globalna dla przycisków
+        function toggleConnection() {
+            mcpClient.toggleConnection();
+        }
+
+        // Obsługa klawiatury
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                toggleConnection();
+            }
+        });
+    </script>
+</body>
+</html>
