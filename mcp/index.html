@@ -973,95 +973,95 @@
                     const rates = {
                         'PLN': 1,
                         'EUR': 4.25,
-                const statusDot = document.querySelector('.chat-status .status-dot');
-                const statusText = document.querySelector('#chatStatus');
-                const serviceInfo = document.querySelector('#serviceInfo');
-
-                // Sprawdź połączenie z Ollama
-                try {
-                    const response = await fetch('http://localhost:11434/api/tags');
-                    if (response.ok) {
-                        this.isConnected = true;
-                        statusDot.classList.add('connected');
-                        statusText.textContent = 'Status połączenia: Połączony';
-                    } else {
-                        this.isConnected = false;
-                        statusDot.classList.remove('connected');
-                        statusText.textContent = 'Status połączenia: Rozłączony';
-                    }
-                } catch (error) {
-                    this.isConnected = false;
-                    statusDot.classList.remove('connected');
-                    statusText.textContent = 'Status połączenia: Rozłączony';
+                        'USD': 3.80,
+                        'GBP': 4.80
+                    };
+                    const result = (Number(amount) / rates[from]) * rates[to];
+                    return `Wynik konwersji: ${result.toFixed(2)} ${to}`;
                 }
 
-                // Wyświetl dostępne usługi i komendy
-                serviceInfo.innerHTML = '';
-                Object.entries(this.services).forEach(([key, service]) => {
-                    const serviceDiv = document.createElement('div');
-                    serviceDiv.className = 'service-item';
-                    serviceDiv.innerHTML = `
-                        <h4>${service.name}</h4>
-                        <p>${service.description}</p>
-                        <ul class="command-list">
-                            ${service.commands.map(cmd => `<li>${cmd}</li>`).join('')}
-                        </ul>
-                    `;
-                    serviceInfo.appendChild(serviceDiv);
-                });
+                // Obsługa operacji na plikach
+                const fsMatch = message.match(/^list\s+(.+)/);
+                const readMatch = message.match(/^read\s+(.+)/);
+                const writeMatch = message.match(/^write\s+(.+\s+.+)/);
+                const appendMatch = message.match(/^append\s+(.+\s+.+)/);
+                const deleteMatch = message.match(/^delete\s+(.+)/);
+                const mkdirMatch = message.match(/^mkdir\s+(.+)/);
+                const renameMatch = message.match(/^rename\s+(.+\s+.+)/);
 
-                sendButton.addEventListener('click', async () => {
-                    const userMessage = input.value.trim();
-                    if (!userMessage) return;
-
-                    // Sprawdź czy mamy połączenie przed wysłaniem
-                    if (!this.isConnected) {
-                        messagesDiv.innerHTML += `
-                            <div class="chat-message assistant-message">
-                                Błąd: Brak połączenia z serwerem Ollama
-                            </div>
-                        `;
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                        return;
-                    }
-
-                    // Dodaj wiadomość użytkownika
-                    messagesDiv.innerHTML += `
-                        <div class="chat-message user-message">
-                            ${userMessage}
-                        </div>
-                    `;
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-                    // Wyślij wiadomość do Ollama
+                if (fsMatch) {
                     try {
-                        const response = await this.sendMessage(userMessage);
-                        
-                        // Dodaj odpowiedź asystenta
-                        messagesDiv.innerHTML += `
-                            <div class="chat-message assistant-message">
-                                ${response}
-                            </div>
-                        `;
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        const directoryHandle = await window.showDirectoryPicker();
+                        const entries = await directoryHandle.entries();
+                        let result = 'Zawartość katalogu:\n';
+                        for await (const [name, handle] of entries) {
+                            result += `${name} (${handle.kind})\n`;
+                        }
+                        return result;
                     } catch (error) {
-                        messagesDiv.innerHTML += `
-                            <div class="chat-message assistant-message">
-                                Błąd: ${error.message}
-                            </div>
-                        `;
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        return `Błąd: ${error.message}`;
                     }
+                }
 
-                    input.value = '';
-                });
-
-                // Obsługa wysyłania przez Enter
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendButton.click();
+                if (writeMatch) {
+                    try {
+                        const [path, content] = writeMatch[1].split(' ');
+                        const fileHandle = await window.showSaveFilePicker();
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(content);
+                        await writable.close();
+                        return `Plik został zapisany pomyślnie`;
+                    } catch (error) {
+                        return `Błąd: ${error.message}`;
                     }
+                }
+
+                if (appendMatch) {
+                    try {
+                        const [path, content] = appendMatch[1].split(' ');
+                        const [fileHandle] = await window.showOpenFilePicker();
+                        const writable = await fileHandle.createWritable();
+                        const file = await fileHandle.getFile();
+                        const currentContent = await file.text();
+                        await writable.write(currentContent + '\n' + content);
+                        await writable.close();
+                        return `Zawartość została dodana do pliku`;
+                    } catch (error) {
+                        return `Błąd: ${error.message}`;
+                    }
+                }
+
+                if (renameMatch) {
+                    try {
+                        const [oldPath, newPath] = renameMatch[1].split(' ');
+                        const [fileHandle] = await window.showOpenFilePicker();
+                        const newHandle = await window.showSaveFilePicker();
+                        await fileHandle.move(newHandle);
+                        return `Nazwa została zmieniona`;
+                    } catch (error) {
+                        return `Błąd: ${error.message}`;
+                    }
+                }
+
+                // Jeśli to nie jest komenda kalkulatora ani operacji na plikach, przekaż do LLM
+                try {
+                    const response = await fetch(this.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: 'llama2',
+                            prompt: message,
+                            stream: false
+                        })
+                    });
+
+                    const data = await response.json();
+                    return data.response;
+                } catch (error) {
+                    console.error('Error in Ollama:', error);
+                    throw error;
                 });
             }
         }
