@@ -1,0 +1,12 @@
+# Podstawowe zależności
+Pillow>=10.0.0          # Przetwarzanie obrazów
+pytesseract>=0.3.10     # OCR
+pdf2image>=1.16.3       # Konwersja PDF
+pandas>=2.0.0           # Excel/CSV
+opencv-python>=4.8.0    # Video processing
+
+# Opcjonalne (dla lepszej wydajności)
+numpy>=1.24.0
+matplotlib>=3.7.0       # Wykresy
+openpyxl>=3.1.0         # Excel zaawansowany
+python-magic>=0.4.27    # Wykrywanie typów plików

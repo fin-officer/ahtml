@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📦 MetaDoc System - Inteligentny Kontener Danych</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk1ldGFEb2MgU3lzdGVtIiwKICAic2hvcnRfbmFtZSI6ICJNZXRhRG9jIiwKICAic3RhcnRfdXJsIjogIi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjMDA3YWNjIiwKICAiaWNvbnMiOiBbXQp9">
+
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 10px 0 0 0;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+
+        .content-area {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .upload-zone {
+            border: 3px dashed #ccc;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover {
+            border-color: #007acc;
+            background: #f8f9ff;
+        }
+
+        .upload-zone.dragover {
+            border-color: #007acc;
+            background: #e8f4fd;
+            transform: scale(1.02);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .document-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .doc-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            background: #fafafa;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .doc-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .doc-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .doc-icon {
+            font-size: 1.5rem;
+        }
+
+        .doc-title {
+            font-weight: 600;
+            flex: 1;
+            color: #333;
+        }
+
+        .doc-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .doc-image:hover {
+            transform: scale(1.05);
+        }
+
+        .doc-metadata {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .ocr-text {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 100px;
+            overflow-y: auto;
+            margin: 10px 0;
+            resize: vertical;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .tag {
+            background: #007acc;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .tag:hover {
+            background: #005fa3;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #007acc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #005fa3;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .progress-container {
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007acc, #0099ff);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .filters {
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        .filter-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .filter-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .analysis-panel {
+            background: #f8f9ff;
+            border: 1px solid #007acc;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .confidence-meter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .confidence-bar {
+            flex: 1;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+            transition: width 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #007acc;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            z-index: 1001;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .document-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <h1>📦 MetaDoc System</h1>
+            <p>Inteligentny kontener danych z OCR, analizą AI i funkcjonalnością offline</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        📁 Upload Files
+                    </button>
+                </div>
+
+                <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.xls,.xlsx">
+
+                <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                    <span class="upload-icon">📤</span>
+                    <div><strong>Kliknij lub przeciągnij pliki</strong></div>
+                    <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+                        PDF, Obrazy, MP4, XLS
+                    </div>
+                </div>
+
+                <div class="progress-container" id="progressContainer">
+                    <div id="progressText">Przetwarzanie...</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+
+                <div class="search-container">
+                    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Szukaj w dokumentach...">
+                </div>
+
+                <div class="filters">
+                    <div class="filter-group">
+                        <label class="filter-label">Typ dokumentu:</label>
+                        <select class="filter-select" id="typeFilter">
+                            <option value="">Wszystkie</option>
+                            <option value="image">Obrazy</option>
+                            <option value="pdf">PDF</option>
+                            <option value="video">Video</option>
+                            <option value="spreadsheet">Arkusze</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Data:</label>
+                        <select class="filter-select" id="dateFilter">
+                            <option value="">Wszystkie</option>
+                            <option value="today">Dzisiaj</option>
+                            <option value="week">Ostatni tydzień</option>
+                            <option value="month">Ostatni miesiąc</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="stats" id="statsPanel">
+                    <div class="stat-item">
+                        <span>Dokumenty:</span>
+                        <span id="docCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Z OCR:</span>
+                        <span id="ocrCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Rozmiar:</span>
+                        <span id="totalSize">0 MB</span>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="exportAllMetadata()">
+                        💾 Export JSON
+                    </button>
+                    <button class="btn btn-success" onclick="generateReport()">
+                        📊 Raport HTML
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <div class="document-grid" id="documentGrid">
+                    <!-- Dokumenty będą tutaj dynamicznie dodawane -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal do podglądu -->
+    <div class="modal" id="imageModal">
+        <div class="modal-content">
+            <img class="modal-image" id="modalImage" src="" alt="">
+            <div style="margin-top: 15px; text-align: right;">
+                <button class="btn btn-secondary" onclick="closeModal()">Zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Metadane JSON -->
+    <script type="application/json" id="metadata">
+    {
+        "project_info": {
+            "name": "MetaDoc System",
+            "version": "1.0.0",
+            "created": "2025-06-20",
+            "description": "Inteligentny kontener danych z OCR i analizą AI"
+        },
+        "documents": []
+    }
+    </script>
+
+    <!-- Service Worker Code -->
+    <script id="service-worker-code" type="text/plain">
+        const CACHE_NAME = 'metadoc-cache-v1';
+
+        self.addEventListener('install', event => {
+            self.skipWaiting();
+        });
+
+        self.addEventListener('fetch', event => {
+            if (event.request.url.includes('/api/') || event.request.url.includes('tesseract')) {
+                event.respondWith(
+                    caches.open(CACHE_NAME).then(cache =>
+                        cache.match(event.request).then(response =>
+                            response || fetch(event.request).then(networkResponse => {
+                                cache.put(event.request, networkResponse.clone());
+                                return networkResponse;
+                            })
+                        )
+                    )
+                );
+            }
+        });
+    </script>
+
+    <script>
+        // Główna klasa aplikacji
+        class MetaDocSystem {
+            constructor() {
+                this.data = JSON.parse(document.getElementById('metadata').textContent);
+                this.initializeApp();
+                this.registerServiceWorker();
+            }
+
+            initializeApp() {
+                this.setupEventListeners();
+                this.setupDragAndDrop();
+                this.loadExistingDocuments();
+                this.updateStats();
+            }
+
+            setupEventListeners() {
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFiles(Array.from(e.target.files));
+                });
+
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.filterDocuments();
+                });
+
+                document.getElementById('typeFilter').addEventListener('change', () => {
+                    this.filterDocuments();
+                });
+
+                document.getElementById('dateFilter').addEventListener('change', () => {
+                    this.filterDocuments();
+                });
+            }
+
+            setupDragAndDrop() {
+                const uploadZone = document.querySelector('.upload-zone');
+
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.add('dragover');
+                });
+
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.classList.remove('dragover');
+                });
+
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.remove('dragover');
+                    this.handleFiles(Array.from(e.dataTransfer.files));
+                });
+            }
+
+            async handleFiles(files) {
+                const progressContainer = document.getElementById('progressContainer');
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+
+                progressContainer.style.display = 'block';
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const progress = ((i + 1) / files.length) * 100;
+
+                    progressFill.style.width = `${progress}%`;
+                    progressText.textContent = `Przetwarzanie ${file.name}...`;
+
+                    await this.processFile(file);
+                }
+
+                progressContainer.style.display = 'none';
+                this.saveToStorage();
+                this.renderDocuments();
+                this.updateStats();
+                this.showNotification('✅ Pliki zostały przetworzone pomyślnie!');
+            }
+
+            async processFile(file) {
+                const doc = {
+                    id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    filename: file.name,
+                    size: file.size,
+                    type: this.getFileType(file),
+                    uploaded: new Date().toISOString(),
+                    thumbnail: '',
+                    fullImage: '',
+                    ocr: '',
+                    metadata: {
+                        confidence: 0,
+                        entities: [],
+                        analysis: ''
+                    },
+                    tags: []
+                };
+
+                if (file.type.startsWith('image/')) {
+                    await this.processImage(file, doc);
+                } else if (file.type === 'application/pdf') {
+                    await this.processPDF(file, doc);
+                } else if (file.type.startsWith('video/')) {
+                    await this.processVideo(file, doc);
+                } else if (file.name.match(/\.(xls|xlsx)$/i)) {
+                    await this.processSpreadsheet(file, doc);
+                }
+
+                this.data.documents.push(doc);
+            }
+
+            async processImage(file, doc) {
+                // Tworzenie miniaturki
+                const thumbnail = await this.createThumbnail(file, 200);
+                doc.thumbnail = thumbnail;
+
+                // Pełny obraz jako Data URI
+                const fullImage = await this.fileToDataURL(file);
+                doc.fullImage = fullImage;
+
+                // OCR z Tesseract.js
+                try {
+                    const { data: { text, confidence } } = await Tesseract.recognize(file, 'pol', {
+                        logger: m => console.log(m)
+                    });
+
+                    doc.ocr = text.trim();
+                    doc.metadata.confidence = confidence / 100;
+                    doc.metadata.analysis = this.analyzeOCRText(text);
+                    doc.tags = this.extractTags(text);
+                } catch (error) {
+                    console.error('OCR Error:', error);
+                    doc.ocr = 'Błąd OCR';
+                }
+            }
+
+            async processPDF(file, doc) {
+                // Symulacja konwersji PDF do obrazów
+                // W rzeczywistej implementacji użyj PDF.js
+                const thumbnail = await this.createThumbnail(file, 200);
+                doc.thumbnail = thumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0YwRjBGMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM2NjYiPvCfk4QgUERGPC90ZXh0Pjwvc3ZnPg==';
+
+                doc.ocr = 'PDF - wymagana konwersja do obrazów';
+                doc.metadata.analysis = 'Dokument PDF gotowy do dalszego przetwarzania';
+                doc.tags = ['pdf', 'dokument'];
+            }
+
+            async processVideo(file, doc) {
+                // Symulacja ekstakcji klatek z video
+                const thumbnail = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMzMzMyIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIj7wn5OUIE1QNDwvdGV4dD48L3N2Zz4=';
+                doc.thumbnail = thumbnail;
+
+                doc.ocr = 'Video - gotowe do ekstakcji klatek';
+                doc.metadata.analysis = 'Plik wideo gotowy do analizy frame-by-frame';
+                doc.tags = ['video', 'nagranie'];
+            }
+
+            async processSpreadsheet(file, doc) {
+                // Symulacja konwersji XLS do HTML
+                const thumbnail = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzI4YTc0NSIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIj7wn5SSIFHMS1M8L3RleHQ+PC9zdmc+';
+                doc.thumbnail = thumbnail;
+
+                doc.ocr = 'Arkusz kalkulacyjny - dane tabelaryczne';
+                doc.metadata.analysis = 'Plik Excel gotowy do konwersji na interaktywną tabelę HTML';
+                doc.tags = ['excel', 'tabela', 'dane'];
+            }
+
+            analyzeOCRText(text) {
+                // Prosta analiza tekstu
+                const lines = text.split('\n').filter(line => line.trim().length > 0);
+                const hasNumbers = /\d+/.test(text);
+                const hasDates = /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(text);
+                const hasAmounts = /\d+[,\.]\d{2}/.test(text);
+
+                let analysis = `Znaleziono ${lines.length} linii tekstu. `;
+
+                if (hasNumbers) analysis += 'Zawiera liczby. ';
+                if (hasDates) analysis += 'Wykryto daty. ';
+                if (hasAmounts) analysis += 'Wykryto kwoty pieniężne. ';
+
+                return analysis;
+            }
+
+            extractTags(text) {
+                const tags = [];
+
+                // Wykrywanie typów dokumentów
+                if (text.toLowerCase().includes('faktura')) tags.push('faktura');
+                if (text.toLowerCase().includes('umowa')) tags.push('umowa');
+                if (text.toLowerCase().includes('raport')) tags.push('raport');
+                if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(text)) tags.push('data');
+                if (/\d+[,\.]\d{2}/.test(text)) tags.push('kwoty');
+
+                return tags;
+            }
+
+            async createThumbnail(file, maxSize) {
+                return new Promise((resolve) => {
+                    if (!file.type.startsWith('image/')) {
+                        resolve('');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+
+                            const ratio = Math.min(maxSize / img.width, maxSize / img.height);
+                            canvas.width = img.width * ratio;
+                            canvas.height = img.height * ratio;
+
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            resolve(canvas.toDataURL('image/webp', 0.7));
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            fileToDataURL(file) {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            getFileType(file) {
+                if (file.type.startsWith('image/')) return 'image';
+                if (file.type === 'application/pdf') return 'pdf';
+                if (file.type.startsWith('video/')) return 'video';
+                if (file.name.match(/\.(xls|xlsx)$/i)) return 'spreadsheet';
+                return 'other';
+            }
+
+            renderDocuments() {
+                const grid = document.getElementById('documentGrid');
+                const filteredDocs = this.getFilteredDocuments();
+
+                grid.innerHTML = '';
+
+                filteredDocs.forEach(doc => {
+                    const card = this.createDocumentCard(doc);
+                    grid.appendChild(card);
+                });
+            }
+
+            createDocumentCard(doc) {
+                const card = document.createElement('div');
+                card.className = 'doc-card fade-in';
+
+                const icon = this.getTypeIcon(doc.type);
+                const formattedDate = new Date(doc.uploaded).toLocaleDateString('pl-PL');
+                const formattedSize = this.formatFileSize(doc.size);
+
+                card.innerHTML = `
+                    <div class="doc-header">
+                        <span class="doc-icon">${icon}</span>
+                        <span class="doc-title">${doc.filename}</span>
+                        <button class="btn btn-primary" onclick="app.editDocument('${doc.id}')" style="padding: 5px 10px; font-size: 0.8rem;">✏️</button>
+                    </div>
+
+                    ${doc.thumbnail ? `
+                        <img class="doc-image" src="${doc.thumbnail}" alt="${doc.filename}" onclick="app.showFullImage('${doc.id}')">
+                    ` : `
+                        <div class="doc-image" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #666;">
+                            ${icon} ${doc.type.toUpperCase()}
+                        </div>
+                    `}
+
+                    <div class="doc-metadata">
+                        <div><strong>Rozmiar:</strong> ${formattedSize}</div>
+                        <div><strong>Data:</strong> ${formattedDate}</div>
+                        <div><strong>Typ:</strong> ${doc.type}</div>
+                    </div>
+
+                    <div class="tags">
+                        ${doc.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+
+                    <textarea class="ocr-text" placeholder="Tekst OCR..." onchange="app.updateOCR('${doc.id}', this.value)">${doc.ocr}</textarea>
+
+                    ${doc.metadata.confidence > 0 ? `
+                        <div class="analysis-panel">
+                            <div class="confidence-meter">
+                                <span>Pewność OCR:</span>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: ${doc.metadata.confidence * 100}%"></div>
+                                </div>
+                                <span>${Math.round(doc.metadata.confidence * 100)}%</span>
+                            </div>
+                            <div style="font-size: 0.9rem; color: #666;">
+                                ${doc.metadata.analysis}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+
+                return card;
+            }
+
+            getTypeIcon(type) {
+                const icons = {
+                    image: '🖼️',
+                    pdf: '📄',
+                    video: '🎥',
+                    spreadsheet: '📊',
+                    other: '📎'
+                };
+                return icons[type] || '📎';
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            getFilteredDocuments() {
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                const typeFilter = document.getElementById('typeFilter').value;
+                const dateFilter = document.getElementById('dateFilter').value;
+
+                return this.data.documents.filter(doc => {
+                    // Filtr wyszukiwania
+                    const matchesSearch = !searchTerm ||
+                        doc.filename.toLowerCase().includes(searchTerm) ||
+                        doc.ocr.toLowerCase().includes(searchTerm) ||
+                        doc.tags.some(tag => tag.toLowerCase().includes(searchTerm));
+
+                    // Filtr typu
+                    const matchesType = !typeFilter || doc.type === typeFilter;
+
+                    // Filtr daty
+                    let matchesDate = true;
+                    if (dateFilter) {
+                        const uploadDate = new Date(doc.uploaded);
+                        const now = new Date();
+
+                        switch (dateFilter) {
+                            case 'today':
+                                matchesDate = uploadDate.toDateString() === now.toDateString();
+                                break;
+                            case 'week':
+                                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                                matchesDate = uploadDate >= weekAgo;
+                                break;
+                            case 'month':
+                                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                                matchesDate = uploadDate >= monthAgo;
+                                break;
+                        }
+                    }
+
+                    return matchesSearch && matchesType && matchesDate;
+                });
+            }
+
+            filterDocuments() {
+                this.renderDocuments();
+                this.updateStats();
+            }
+
+            updateStats() {
+                const docs = this.getFilteredDocuments();
+                const ocrDocs = docs.filter(doc => doc.ocr && doc.ocr.trim().length > 0);
+                const totalSize = docs.reduce((sum, doc) => sum + doc.size, 0);
+
+                document.getElementById('docCount').textContent = docs.length;
+                document.getElementById('ocrCount').textContent = ocrDocs.length;
+                document.getElementById('totalSize').textContent = this.formatFileSize(totalSize);
+            }
+
+            showFullImage(docId) {
+                const doc = this.data.documents.find(d => d.id === docId);
+                if (doc && (doc.fullImage || doc.thumbnail)) {
+                    const modal = document.getElementById('imageModal');
+                    const modalImage = document.getElementById('modalImage');
+
+                    modalImage.src = doc.fullImage || doc.thumbnail;
+                    modal.classList.add('active');
+                }
+            }
+
+            editDocument(docId) {
+                const doc = this.data.documents.find(d => d.id === docId);
+                if (doc) {
+                    const newTitle = prompt('Nowa nazwa dokumentu:', doc.filename);
+                    if (newTitle && newTitle.trim()) {
+                        doc.filename = newTitle.trim();
+                        this.saveToStorage();
+                        this.renderDocuments();
+                        this.showNotification('✅ Nazwa dokumentu została zaktualizowana');
+                    }
+                }
+            }
+
+            updateOCR(docId, text) {
+                const doc = this.data.documents.find(d => d.id === docId);
+                if (doc) {
+                    doc.ocr = text;
+                    doc.metadata.analysis = this.analyzeOCRText(text);
+                    doc.tags = [...new Set([...doc.tags, ...this.extractTags(text)])];
+                    this.saveToStorage();
+                    this.updateStats();
+                }
+            }
+
+            saveToStorage() {
+                try {
+                    localStorage.setItem('metadoc-data', JSON.stringify(this.data));
+                    document.getElementById('metadata').textContent = JSON.stringify(this.data, null, 2);
+                } catch (error) {
+                    console.error('Błąd zapisu:', error);
+                    this.showNotification('❌ Błąd zapisu danych');
+                }
+            }
+
+            loadExistingDocuments() {
+                try {
+                    const saved = localStorage.getItem('metadoc-data');
+                    if (saved) {
+                        this.data = JSON.parse(saved);
+                        document.getElementById('metadata').textContent = JSON.stringify(this.data, null, 2);
+                        this.renderDocuments();
+                    }
+                } catch (error) {
+                    console.error('Błąd ładowania:', error);
+                }
+            }
+
+            showNotification(message, duration = 3000) {
+                const notification = document.getElementById('notification');
+                notification.textContent = message;
+                notification.classList.add('show');
+
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, duration);
+            }
+
+            registerServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    const swCode = document.getElementById('service-worker-code').textContent;
+                    const swBlob = new Blob([swCode], { type: 'text/javascript' });
+                    const swUrl = URL.createObjectURL(swBlob);
+
+                    navigator.serviceWorker.register(swUrl)
+                        .then(registration => {
+                            console.log('✅ Service Worker zarejestrowany:', registration);
+                        })
+                        .catch(error => {
+                            console.error('❌ Błąd rejestracji Service Worker:', error);
+                        });
+                }
+            }
+        }
+
+        // Globalne funkcje
+        function closeModal() {
+            document.getElementById('imageModal').classList.remove('active');
+        }
+
+        function exportAllMetadata() {
+            const dataStr = JSON.stringify(app.data, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `metadoc-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            app.showNotification('💾 Metadane wyeksportowane pomyślnie!');
+        }
+
+        function generateReport() {
+            const docs = app.getFilteredDocuments();
+
+            // Generowanie raportu HTML
+            const reportHTML = `
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Raport MetaDoc - ${new Date().toLocaleDateString('pl-PL')}</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .summary { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .doc-table { width: 100%; border-collapse: collapse; }
+        .doc-table th, .doc-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .doc-table th { background: #007acc; color: white; }
+        .doc-table tr:nth-child(even) { background: #f9f9f9; }
+        .tag { background: #007acc; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin: 2px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Raport MetaDoc</h1>
+        <p>Wygenerowano: ${new Date().toLocaleString('pl-PL')}</p>
+    </div>
+
+    <div class="summary">
+        <h2>Podsumowanie</h2>
+        <p><strong>Łączna liczba dokumentów:</strong> ${docs.length}</p>
+        <p><strong>Dokumenty z OCR:</strong> ${docs.filter(d => d.ocr && d.ocr.trim()).length}</p>
+        <p><strong>Łączny rozmiar:</strong> ${app.formatFileSize(docs.reduce((sum, d) => sum + d.size, 0))}</p>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Nazwa pliku</th>
+                <th>Typ</th>
+                <th>Rozmiar</th>
+                <th>Data uploadu</th>
+                <th>Tagi</th>
+                <th>OCR (podgląd)</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${docs.map(doc => `
+                <tr>
+                    <td>${doc.filename}</td>
+                    <td>${app.getTypeIcon(doc.type)} ${doc.type}</td>
+                    <td>${app.formatFileSize(doc.size)}</td>
+                    <td>${new Date(doc.uploaded).toLocaleDateString('pl-PL')}</td>
+                    <td>${doc.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</td>
+                    <td>${doc.ocr ? doc.ocr.substring(0, 100) + (doc.ocr.length > 100 ? '...' : '') : '-'}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+            const blob = new Blob([reportHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `metadoc-raport-${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            app.showNotification('📊 Raport HTML wygenerowany pomyślnie!');
+        }
+
+        // Obsługa klawiszy
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                exportAllMetadata();
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                generateReport();
+            }
+        });
+
+        // Inicjalizacja aplikacji
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new MetaDocSystem();
+        });
+    </script>
+</body>
+</html>
