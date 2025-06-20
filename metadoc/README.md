@@ -66,7 +66,7 @@ metadoc-system/
 
 ```bash
 # Przetworzenie pojedynczego pliku
-python builder.py faktura.pdf
+python builder.py invoice.pdf
 
 # Przetworzenie wielu plików
 python builder.py *.pdf *.jpg --output faktury-2025.html

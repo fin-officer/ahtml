@@ -217,6 +217,122 @@
             line-height: 1.4;
         }
 
+        .chat-container {
+            background: #2d3748;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chat-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .chat-status .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .chat-status .status-dot.connected {
+            background: #10b981;
+        }
+
+        .chat-help {
+            background: #1a202c;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .service-info {
+            margin-top: 10px;
+        }
+
+        .service-item {
+            background: #2d3748;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .service-item h4 {
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+
+        .command-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .command-list li {
+            margin-bottom: 5px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .command-list li::before {
+            content: '•';
+            color: #3b82f6;
+            position: absolute;
+            left: 0;
+        }
+
+        .chat-messages {
+            background: #1a202c;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #4a5568;
+            border-radius: 6px;
+            background: #2d3748;
+            color: #e2e8f0;
+        }
+
+        .chat-input button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .user-message {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .assistant-message {
+            background: #4a5568;
+        }
+
         .log-entry {
             margin-bottom: 5px;
             padding: 5px;
@@ -286,7 +402,17 @@
         </div>
 
         <div class="connection-panel">
-            <h2>🌐 Połączenie z serwerem MCP</h2>
+            <h2>🌐 Połączenie z MCP</h2>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span>Status połączenia</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span>Stan serwera</span>
+                </div>
+            </div>
             <div class="connection-form">
                 <div class="form-group">
                     <label for="serverUrl">URL Serwera MCP</label>
@@ -308,6 +434,25 @@
             <h2>🛠️ Dostępne usługi MCP</h2>
             <div class="services-grid" id="servicesGrid">
                 <!-- Usługi będą dodawane dynamicznie -->
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <h2>🤖 Chat z LLM</h2>
+            <div class="chat-status">
+                <div class="status-dot"></div>
+                <span id="chatStatus">Status połączenia: Rozłączony</span>
+            </div>
+            <div class="chat-messages"></div>
+            <div class="chat-input">
+                <input type="text" placeholder="Napisz wiadomość...">
+                <button>Wyślij</button>
+            </div>
+            <div class="chat-help" id="chatHelp">
+                <h3>📚 Dostępne usługi i komendy</h3>
+                <div class="service-info" id="serviceInfo">
+                    <!-- Informacje o usługach będą dodawane dynamicznie -->
+                </div>
             </div>
         </div>
 
@@ -338,36 +483,67 @@
                 setInterval(() => this.updateLastActivity(), 1000);
             }
 
-            async setupServiceWorker() {
-                if ('serviceWorker' in navigator) {
-                    try {
-                        const swCode = `
-                            self.addEventListener('install', event => {
-                                console.log('Service Worker zainstalowany');
-                                self.skipWaiting();
-                            });
+            setupServiceWorker() {
+                // Sprawdź, czy przeglądarka obsługuje Service Worker
+                if (!('serviceWorker' in navigator)) {
+                    console.log('Service Worker nie jest obsługiwany w tej przeglądarce');
+                    return;
+                }
 
-                            self.addEventListener('activate', event => {
-                                console.log('Service Worker aktywowany');
-                                event.waitUntil(self.clients.claim());
-                            });
+                // Sprawdź, czy nie jesteśmy na blob URL (np. podczas debugowania)
+                if (window.location.protocol === 'blob:') {
+                    console.log('Nie próbuję rejestrować Service Workera na blob URL');
+                    return;
+                }
 
-                            self.addEventListener('message', event => {
-                                if (event.data.type === 'MCP_REQUEST') {
-                                    // Tutaj można obsłużyć żądania MCP w tle
-                                    console.log('Otrzymano żądanie MCP:', event.data);
+                // Rejestracja Service Workera z zewnętrznym plikiem
+                try {
+                    // Adjust path to relative location
+                    navigator.serviceWorker.register('../service-worker.js', {
+                        scope: './'
+                    })
+                        .then((registration) => {
+                            console.log('Service Worker zarejestrowany:', registration);
+                            this.log('Service Worker zarejestrowany pomyślnie', 'success');
+
+                            // Obsługa stanu połączenia
+                            registration.addEventListener('statechange', (event) => {
+                                console.log('Service Worker state:', event.target.state);
+                                if (event.target.state === 'activated') {
+                                    this.log('Service Worker aktywowany', 'success');
                                 }
                             });
-                        `;
 
-                        const swBlob = new Blob([swCode], { type: 'application/javascript' });
-                        const swUrl = URL.createObjectURL(swBlob);
+                            // Obsługa aktualizacji
+                            registration.addEventListener('updatefound', () => {
+                                console.log('Znaleziono aktualizację Service Workera');
+                                const installingWorker = registration.installing;
+                                installingWorker.addEventListener('statechange', () => {
+                                    if (installingWorker.state === 'installed') {
+                                        if (navigator.serviceWorker.controller) {
+                                            this.log('Nowa wersja Service Workera jest gotowa do aktywacji', 'info');
+                                        } else {
+                                            this.log('Service Worker został zainstalowany', 'success');
+                                        }
+                                    }
+                                });
+                            });
 
-                        await navigator.serviceWorker.register(swUrl);
-                        this.log('Service Worker zarejestrowany pomyślnie', 'success');
-                    } catch (error) {
-                        this.log(`Błąd rejestracji Service Worker: ${error.message}`, 'error');
-                    }
+                            // Obsługa synchronizacji w tle dla Ollama
+                            if ('SyncManager' in window) {
+                                registration.sync.register('sync-messages')
+                                    .catch(error => {
+                                        console.error('Błąd rejestracji synchronizacji:', error);
+                                    });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Błąd rejestracji Service Worker:', error);
+                            this.log(`Błąd rejestracji Service Worker: ${error.message}`, 'error');
+                        });
+                } catch (error) {
+                    console.error('Błąd podczas próby rejestracji Service Workera:', error);
+                    this.log(`Błąd podczas próby rejestracji Service Workera: ${error.message}`, 'error');
                 }
             }
 
@@ -680,10 +856,231 @@
             }
         }
 
-        // Globalna instancja klienta MCP
+        // Klasa do obsługi Ollama
+        class OllamaClient {
+            constructor() {
+                this.apiUrl = 'http://localhost:11434/api/generate';
+                this.messages = [];
+                this.isConnected = false;
+                this.services = {
+                    'metadoc': {
+                        name: 'Metadoc Parser',
+                        description: 'Parser dokumentów do analizy metadanych',
+                        commands: [
+                            'analyze [filename] - analizuje dokument',
+                            'extract [type] - wyodrębnia określony typ danych',
+                            'list - wyświetla dostępne typy danych'
+                        ]
+                    },
+                    'ollama': {
+                        name: 'LLM Assistant',
+                        description: 'Asystent oparty na modelu językowym',
+                        commands: [
+                            'ask [question] - zadaje pytanie',
+                            'explain [topic] - wyjaśnia temat',
+                            'help - wyświetla dostępne komendy'
+                        ]
+                    },
+                    'calculator': {
+                        name: 'Financial Calculator',
+                        description: 'Kalkulator finansowy i matematyczny',
+                        commands: [
+                            'calc [expression] - podstawowe obliczenia',
+                            'interest [principal] [rate] [years] - procent składany',
+                            'loan [amount] [rate] [months] - raty kredytu',
+                            'npv [cashflows] [rate] - wartość bieżąca',
+                            'irr [cashflows] - stopa zwrotu wewnętrzna',
+                            'convert [amount] [from] [to] - konwersja walut'
+                        ]
+                    },
+                    'file-system': {
+                        name: 'File System Operations',
+                        description: 'Operacje na plikach i katalogach',
+                        commands: [
+                            'list [path] - wyświetla zawartość katalogu',
+                            'read [file] - odczytuje zawartość pliku',
+                            'write [file] [content] - zapisuje zawartość do pliku',
+                            'append [file] [content] - dodaje zawartość do pliku',
+                            'delete [file] - usuwa plik',
+                            'mkdir [path] - tworzy katalog',
+                            'rename [old] [new] - zmienia nazwę pliku/katalogu'
+                        ]
+                    }
+                };
+            }
+
+            async sendMessage(message) {
+                // Sprawdź czy to jest komenda kalkulatora
+                const calcMatch = message.match(/^calc\s+(.+)/);
+                const interestMatch = message.match(/^interest\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+)/);
+                const loanMatch = message.match(/^loan\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+)/);
+                const npvMatch = message.match(/^npv\s+\[(.+)]\s+(\d+(?:\.\d+)?)$/);
+                const irrMatch = message.match(/^irr\s+\[(.+)]$/);
+                const convertMatch = message.match(/^convert\s+(\d+(?:\.\d+)?)\s+(\w+)\s+(\w+)/);
+
+                if (calcMatch) {
+                    try {
+                        const expression = calcMatch[1];
+                        const result = eval(expression);
+                        return `Wynik: ${result}`;
+                    } catch (error) {
+                        return `Błąd obliczeń: ${error.message}`;
+                    }
+                }
+
+                if (interestMatch) {
+                    const [principal, rate, years] = interestMatch.slice(1).map(Number);
+                    const finalAmount = principal * Math.pow(1 + rate/100, years);
+                    return `Kwota końcowa po ${years} latach: ${finalAmount.toFixed(2)} PLN`;
+                }
+
+                if (loanMatch) {
+                    const [amount, rate, months] = loanMatch.slice(1).map(Number);
+                    const monthlyRate = rate / 100 / 12;
+                    const monthlyPayment = amount * (monthlyRate * Math.pow(1 + monthlyRate, months)) / 
+                        (Math.pow(1 + monthlyRate, months) - 1);
+                    return `Miesięczna rata: ${monthlyPayment.toFixed(2)} PLN`;
+                }
+
+                if (npvMatch) {
+                    const cashflows = JSON.parse(`[${npvMatch[1]}]`).map(Number);
+                    const rate = Number(npvMatch[2]);
+                    let npv = 0;
+                    cashflows.forEach((cf, i) => {
+                        npv += cf / Math.pow(1 + rate/100, i);
+                    });
+                    return `Wartość bieżąca: ${npv.toFixed(2)} PLN`;
+                }
+
+                if (irrMatch) {
+                    const cashflows = JSON.parse(`[${irrMatch[1]}]`).map(Number);
+                    const guess = 0.1;
+                    const tolerance = 0.0001;
+                    let irr = guess;
+                    let npv = 0;
+                    do {
+                        npv = 0;
+                        cashflows.forEach((cf, i) => {
+                            npv += cf / Math.pow(1 + irr, i);
+                        });
+                        irr += npv / 100;
+                    } while (Math.abs(npv) > tolerance);
+                    return `Stopa zwrotu wewnętrzna: ${(irr * 100).toFixed(2)}%`;
+                }
+
+                if (convertMatch) {
+                    const [amount, from, to] = convertMatch.slice(1);
+                    const rates = {
+                        'PLN': 1,
+                        'EUR': 4.25,
+                const statusDot = document.querySelector('.chat-status .status-dot');
+                const statusText = document.querySelector('#chatStatus');
+                const serviceInfo = document.querySelector('#serviceInfo');
+
+                // Sprawdź połączenie z Ollama
+                try {
+                    const response = await fetch('http://localhost:11434/api/tags');
+                    if (response.ok) {
+                        this.isConnected = true;
+                        statusDot.classList.add('connected');
+                        statusText.textContent = 'Status połączenia: Połączony';
+                    } else {
+                        this.isConnected = false;
+                        statusDot.classList.remove('connected');
+                        statusText.textContent = 'Status połączenia: Rozłączony';
+                    }
+                } catch (error) {
+                    this.isConnected = false;
+                    statusDot.classList.remove('connected');
+                    statusText.textContent = 'Status połączenia: Rozłączony';
+                }
+
+                // Wyświetl dostępne usługi i komendy
+                serviceInfo.innerHTML = '';
+                Object.entries(this.services).forEach(([key, service]) => {
+                    const serviceDiv = document.createElement('div');
+                    serviceDiv.className = 'service-item';
+                    serviceDiv.innerHTML = `
+                        <h4>${service.name}</h4>
+                        <p>${service.description}</p>
+                        <ul class="command-list">
+                            ${service.commands.map(cmd => `<li>${cmd}</li>`).join('')}
+                        </ul>
+                    `;
+                    serviceInfo.appendChild(serviceDiv);
+                });
+
+                sendButton.addEventListener('click', async () => {
+                    const userMessage = input.value.trim();
+                    if (!userMessage) return;
+
+                    // Sprawdź czy mamy połączenie przed wysłaniem
+                    if (!this.isConnected) {
+                        messagesDiv.innerHTML += `
+                            <div class="chat-message assistant-message">
+                                Błąd: Brak połączenia z serwerem Ollama
+                            </div>
+                        `;
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        return;
+                    }
+
+                    // Dodaj wiadomość użytkownika
+                    messagesDiv.innerHTML += `
+                        <div class="chat-message user-message">
+                            ${userMessage}
+                        </div>
+                    `;
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+                    // Wyślij wiadomość do Ollama
+                    try {
+                        const response = await this.sendMessage(userMessage);
+                        
+                        // Dodaj odpowiedź asystenta
+                        messagesDiv.innerHTML += `
+                            <div class="chat-message assistant-message">
+                                ${response}
+                            </div>
+                        `;
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    } catch (error) {
+                        messagesDiv.innerHTML += `
+                            <div class="chat-message assistant-message">
+                                Błąd: ${error.message}
+                            </div>
+                        `;
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+
+                    input.value = '';
+                });
+
+                // Obsługa wysyłania przez Enter
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendButton.click();
+                    }
+                });
+            }
+        }
+
+        // Globalne instancje
         let mcpClient;
+        let ollamaClient;
 
         // Inicjalizacja po załadowaniu strony
+        document.addEventListener('DOMContentLoaded', () => {
+            mcpClient = new MCPClient();
+            ollamaClient = new OllamaClient();
+            
+            // Inicjalizacja klienta MCP
+            mcpClient.init();
+            
+            // Inicjalizacja chatu Ollama
+            ollamaClient.handleChat();
+        });
         document.addEventListener('DOMContentLoaded', () => {
             mcpClient = new MCPClient();
         });
