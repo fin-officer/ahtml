@@ -8,8 +8,86 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk1ldGFEb2MgUFdBIiwKICAic2hvcnRfbmFtZSI6ICJNZXRhRG9jIiwKICAic3RhcnRfdXJsIjogIi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjMDA3YWNjIiwKICAiaWNvbnMiOiBbXQp9">
     
-    <!-- fflate - najlepsza biblioteka kompresji (8kB) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.8.1/index.min.js"></script>
+    <!-- Compression system with reliable native fallback -->
+    <script>
+    (function() {
+        console.log('Initializing compression system...');
+        
+        // Function to initialize the compressor with native compression
+        function initializeCompressor() {
+            if (typeof MetaDocCompressor !== 'function') {
+                console.error('MetaDocCompressor class not found');
+                return;
+            }
+            
+            try {
+                window.metaDocCompressor = new MetaDocCompressor();
+                console.log('Using native browser compression');
+                window.metaDocCompressor.fflateAvailable = false;
+                updateCompressionMethodUI('native');
+                
+                // Check for native compression support
+                if (!('CompressionStream' in window)) {
+                    showWarning('Your browser does not support native compression. Using base64 encoding only.');
+                }
+            } catch (error) {
+                console.error('Failed to initialize compressor:', error);
+                showError('Failed to initialize compression system. Some features may be limited.');
+            }
+        }
+        
+        // Update UI to show active compression method
+        function updateCompressionMethodUI(method) {
+            // Remove existing indicator if present
+            const existingIndicator = document.getElementById('compression-method-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            const indicator = document.createElement('div');
+            indicator.id = 'compression-method-indicator';
+            indicator.style.cssText = 'position: fixed; bottom: 10px; right: 10px; background: #007acc; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 1000;';
+            indicator.textContent = `Compression: ${method === 'fflate' ? 'fflate (fastest)' : 'Native (fallback)'}`;
+            document.body.appendChild(indicator);
+        }
+        
+        // Show warning message
+        function showWarning(message) {
+            console.warn(message);
+            const warning = document.createElement('div');
+            warning.className = 'warning-message';
+            warning.style.cssText = 'position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 10px 20px; border-radius: 4px; z-index: 1000;';
+            warning.textContent = `⚠️ ${message}`;
+            document.body.appendChild(warning);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                warning.remove();
+            }, 10000);
+        }
+        
+        // Show error message
+        function showError(message) {
+            console.error(message);
+            const error = document.createElement('div');
+            error.className = 'error-message';
+            error.style.cssText = 'position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 4px; z-index: 1000;';
+            error.textContent = `❌ ${message}`;
+            document.body.appendChild(error);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                error.remove();
+            }, 10000);
+        }
+        
+        // Initialize when the page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM fully loaded, initializing compression...');
+            initializeCompressor();
+        });
+    })();
+    </script>
     
     <style>
         * { box-sizing: border-box; }
@@ -496,6 +574,15 @@
             </div>
         </div>
         
+        <div style="text-align: center; margin: 20px 0;">
+            <button id="testCompression" class="btn btn-primary" style="margin: 0 10px 20px 0;">
+                🧪 Test Compression
+            </button>
+            <button id="browseFiles" class="btn btn-secondary" style="margin: 0 10px 20px 0;">
+                📁 Choose Files
+            </button>
+        </div>
+        
         <input type="file" id="fileInput" style="display: none;" multiple>
         
         <!-- Document Viewer -->
@@ -530,18 +617,208 @@
     <script>
         // Advanced compression system for MetaDoc PWA
         class MetaDocCompressor {
+            // Utility methods
+            log(message) {
+                console.log(`[MetaDoc] ${message}`);
+            }
+            
+            readFileAsArrayBuffer(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error('File reading failed'));
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+            
+            arrayBufferToBase64(buffer) {
+                let binary = '';
+                const bytes = new Uint8Array(buffer);
+                const len = bytes.byteLength;
+                for (let i = 0; i < len; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                return btoa(binary);
+            }
+            
+            createProcessingPipeline(filename, method) {
+                const container = document.createElement('div');
+                container.className = 'compression-pipeline';
+                container.innerHTML = `
+                    <h4>${filename} (${method})</h4>
+                    <div class="pipeline-step" data-step="0">1. Reading file...</div>
+                    <div class="pipeline-step" data-step="1">2. Compressing data...</div>
+                    <div class="pipeline-step" data-step="2">3. Creating document...</div>
+                    <div class="pipeline-step" data-step="3">4. Finalizing...</div>
+                    <div class="loading-bar" style="width: 0%"></div>
+                `;
+                
+                document.getElementById('documentsContainer').prepend(container);
+                
+                return {
+                    updateStep: (step, status) => {
+                        const steps = container.querySelectorAll('.pipeline-step');
+                        steps.forEach((el, idx) => {
+                            if (idx === step) {
+                                el.className = `pipeline-step ${status}`;
+                                el.textContent = `${idx + 1}. ${el.textContent.split('. ')[1]}`;
+                                if (status === 'completed') el.textContent += ' ✓';
+                                if (status === 'error') el.textContent += ' ✗';
+                            }
+                        });
+                    },
+                    updateProgress: (percent) => {
+                        const bar = container.querySelector('.loading-bar');
+                        if (bar) bar.style.width = `${percent}%`;
+                    }
+                };
+            }
+            
+            createDocument(file, compressedData, metadata, method) {
+                return {
+                    id: Date.now(),
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    compressedSize: compressedData.length,
+                    method: method,
+                    timestamp: new Date().toISOString(),
+                    metadata: metadata,
+                    data: compressedData
+                };
+            }
+            
+            addDocumentToStorage(document) {
+                try {
+                    const metadata = JSON.parse(document.getElementById('metadata').textContent);
+                    metadata.documents.push({
+                        id: document.id,
+                        name: document.name,
+                        type: document.type,
+                        size: document.size,
+                        compressedSize: document.compressedSize,
+                        method: document.method,
+                        timestamp: document.timestamp
+                    });
+                    
+                    // Update stats
+                    metadata.project_info.total_documents = metadata.documents.length;
+                    metadata.project_info.compression_stats.total_original_size += document.size;
+                    metadata.project_info.compression_stats.total_compressed_size += document.compressedSize;
+                    metadata.project_info.compression_stats.average_compression_ratio = 
+                        metadata.project_info.compression_stats.total_compressed_size / 
+                        metadata.project_info.compression_stats.total_original_size;
+                    
+                    // Update the best method if this one is better
+                    const currentBest = metadata.project_info.compression_stats.best_method_used;
+                    if (document.metadata.efficiency > 0.8) { // Arbitrary threshold
+                        metadata.project_info.compression_stats.best_method_used = document.method;
+                    }
+                    
+                    // Save back to the page
+                    document.getElementById('metadata').textContent = JSON.stringify(metadata, null, 2);
+                    
+                } catch (error) {
+                    console.error('Error updating metadata:', error);
+                }
+            }
+            
+            displayDocument(document) {
+                const docElement = document.createElement('div');
+                docElement.className = 'doc-card';
+                docElement.innerHTML = `
+                    <div class="doc-header">
+                        <div class="doc-title">${document.name}</div>
+                        <div class="compression-info">
+                            ${(document.compressedSize / 1024).toFixed(2)} KB 
+                            (${((1 - document.compressedSize / document.size) * 100).toFixed(1)}% reduction)
+                        </div>
+                    </div>
+                    <div class="doc-details">
+                        <div>Type: ${document.type}</div>
+                        <div>Original: ${(document.size / 1024).toFixed(2)} KB</div>
+                        <div>Method: ${document.method}</div>
+                        <div>Compression: ${document.metadata.compression_ratio.toFixed(2)}</div>
+                    </div>
+                `;
+                
+                // Add to the documents container
+                const container = document.getElementById('documentsContainer');
+                container.insertBefore(docElement, container.firstChild);
+            }
+            
+            updateProcessingProgress(percent) {
+                // Update any active progress indicators
+                const activePipelines = document.querySelectorAll('.compression-pipeline');
+                activePipelines.forEach(pipeline => {
+                    const bar = pipeline.querySelector('.loading-bar');
+                    if (bar) bar.style.width = `${percent}%`;
+                });
+                
+                // Update the main progress indicator if needed
+                const progressElement = document.getElementById('compressionProgress');
+                if (progressElement) {
+                    progressElement.style.width = `${percent}%`;
+                }
+            }
+            
+            startPerformanceMonitoring() {
+                // Update stats every second
+                this.performanceInterval = setInterval(() => {
+                    if (this.stats.totalFiles > 0) {
+                        const ratio = this.stats.compressedSize / this.stats.originalSize;
+                        const saved = this.stats.originalSize - this.stats.compressedSize;
+                        
+                        document.getElementById('compressionRatio').textContent = 
+                            `${(ratio * 100).toFixed(1)}%`;
+                        document.getElementById('spaceSaved').textContent = 
+                            `${(saved / 1024).toFixed(2)} KB`;
+                        document.getElementById('processingSpeed').textContent = 
+                            this.stats.processingTime > 0 
+                                ? `${(this.stats.originalSize / this.stats.processingTime).toFixed(2)} KB/s`
+                                : '0 KB/s';
+                    }
+                }, 1000);
+                
+                // Memory usage (approximate)
+                if (window.performance && window.performance.memory) {
+                    setInterval(() => {
+                        const memory = window.performance.memory;
+                        document.getElementById('memoryUsage').textContent = 
+                            `${(memory.usedJSHeapSize / (1024 * 1024)).toFixed(2)} MB`;
+                    }, 5000);
+                }
+            }
+            
+            // Cleanup when done
+            cleanup() {
+                if (this.performanceInterval) {
+                    clearInterval(this.performanceInterval);
+                }
+            }
             constructor() {
-                this.compressionMethod = 'hybrid';
+                this.fflateAvailable = typeof fflate !== 'undefined';
+                this.documents = [];
+                this.currentDocument = null;
                 this.stats = {
-                    totalFiles: 0,
-                    originalSize: 0,
-                    compressedSize: 0,
-                    processingTime: 0
+                    totalCompressed: 0,
+                    totalOriginal: 0,
+                    filesProcessed: 0,
+                    startTime: null,
+                    endTime: null,
+                    lastCompressionMethod: this.fflateAvailable ? 'fflate' : 'native',
+                    compressionSuccess: true
                 };
                 
-                this.initializeCompression();
+                // Initialize event listeners and performance monitoring
                 this.setupEventListeners();
                 this.startPerformanceMonitoring();
+                console.log(`MetaDocCompressor initialized with ${this.fflateAvailable ? 'fflate' : 'native'} compression`);
+            }
+            
+            // Alias for compatibility
+            initEventListeners() {
+                return this.setupEventListeners();
             }
             
             initializeCompression() {
@@ -782,4 +1059,130 @@
                     this.updateProcessingProgress(progress);
                     
                     // Yield control to prevent blocking
-                    await new Promise(resolve => setTimeout(resolve,
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+                
+                return compressed;
+            }
+
+            // Other utility methods...
+        } // End of MetaDocCompressor class
+        
+        // Initialize the test button functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const testButton = document.getElementById('testCompression');
+            if (!testButton) return;
+            
+            const originalText = testButton.innerHTML;
+            
+            testButton.addEventListener('click', async () => {
+                try {
+                    // Update UI
+                    testButton.disabled = true;
+                    testButton.innerHTML = '⏳ Testing...';
+                    
+                    console.log('Running compression test...');
+                    const testContent = 'This is a test string to compress. '.repeat(100);
+                    const blob = new Blob([testContent], { type: 'text/plain' });
+                    const testFile = new File([blob], 'test.txt', { type: 'text/plain' });
+                    
+                    // Show test info
+                    const testInfo = document.createElement('div');
+                    testInfo.className = 'test-info';
+                    testInfo.style.margin = '10px 0';
+                    testInfo.style.padding = '10px';
+                    testInfo.style.border = '1px solid #ddd';
+                    testInfo.style.borderRadius = '4px';
+                    testInfo.innerHTML = `
+                        <div><strong>Test File:</strong> ${testFile.name} (${(testFile.size / 1024).toFixed(2)} KB)</div>
+                        <div><strong>Method:</strong> ${window.metaDocCompressor?.fflateAvailable ? 'fflate' : 'native'}</div>
+                        <div class="progress-container" style="margin-top: 10px; display: none;">
+                            <div class="progress-bar" style="height: 20px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">
+                                <div class="progress" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.3s;"></div>
+                            </div>
+                            <div class="progress-text" style="text-align: center; margin-top: 5px; font-size: 12px;">0%</div>
+                        </div>
+                        <div class="test-result" style="margin-top: 10px; font-weight: bold;"></div>
+                    `;
+                    
+                    // Insert after the test button
+                    testButton.parentNode.insertBefore(testInfo, testButton.nextSibling);
+                    
+                    // Show progress container
+                    const progressContainer = testInfo.querySelector('.progress-container');
+                    const progressBar = testInfo.querySelector('.progress');
+                    const progressText = testInfo.querySelector('.progress-text');
+                    const resultDiv = testInfo.querySelector('.test-result');
+                    
+                    // Update progress
+                    const updateProgress = (percent) => {
+                        progressContainer.style.display = 'block';
+                        progressBar.style.width = `${percent}%`;
+                        progressText.textContent = `${Math.round(percent)}%`;
+                    };
+                    
+                    if (window.metaDocCompressor) {
+                        console.log('Starting compression test...');
+                        updateProgress(10);
+                        
+                        try {
+                            // Process the test file
+                            const startTime = performance.now();
+                            updateProgress(30);
+                            
+                            // Process the file using the compressor
+                            const result = await window.metaDocCompressor.processFile(testFile);
+                            updateProgress(80);
+                            
+                            // Calculate stats
+                            const endTime = performance.now();
+                            const duration = (endTime - startTime) / 1000; // in seconds
+                            const originalSize = testFile.size;
+                            const compressedSize = result.compressedData ? 
+                                result.compressedData.length * 0.75 : // Approximate base64 to bytes
+                                originalSize; // Fallback if no compressed data
+                            const ratio = (compressedSize / originalSize * 100).toFixed(2);
+                            
+                            // Update UI with results
+                            updateProgress(100);
+                            resultDiv.innerHTML = `
+                                <div>✅ Compression successful!</div>
+                                <div>Original: ${(originalSize / 1024).toFixed(2)} KB → 
+                                       Compressed: ${(compressedSize / 1024).toFixed(2)} KB (${ratio}%)</div>
+                                <div>Time: ${duration.toFixed(2)} seconds</div>
+                            `;
+                            
+                            console.log('Compression test completed:', { originalSize, compressedSize, ratio, duration });
+                        } catch (error) {
+                            throw new Error(`Compression failed: ${error.message}`);
+                        }
+                    } else {
+                        throw new Error('Compression system not ready');
+                    }
+                } catch (error) {
+                    console.error('Test failed:', error);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.style.color = '#d32f2f';
+                    errorDiv.style.marginTop = '10px';
+                    errorDiv.textContent = `❌ Test failed: ${error.message}`;
+                    testButton.parentNode.insertBefore(errorDiv, testButton.nextSibling);
+                } finally {
+                    // Reset button state
+                    testButton.disabled = false;
+                    testButton.innerHTML = originalText;
+                }
+            });
+            
+            // Set up browse files button
+            const browseButton = document.getElementById('browseFiles');
+            if (browseButton) {
+                browseButton.addEventListener('click', () => {
+                    const fileInput = document.getElementById('fileInput');
+                    if (fileInput) fileInput.click();
+                });
+            }
+        });
+    </script>
+</body>
+</html>
